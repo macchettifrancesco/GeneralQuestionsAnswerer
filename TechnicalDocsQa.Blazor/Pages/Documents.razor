@@ -1,0 +1,182 @@
+@page "/documents"
+@inject DocumentApiClient DocumentApi
+
+<div class="page-header">
+    <span>📖</span>
+    <span>INDEX REPOSITORY</span>
+</div>
+
+<div class="table-header">
+    <div>
+        <h1 class="page-title" style="margin-bottom: 0.5rem;">Document Library</h1>
+        <div class="table-info">@GetDocumentStats()</div>
+    </div>
+    <div class="filter-badges">
+        <span class="badge badge-success">
+            <span>●</span>
+            <span>Indexed</span>
+        </span>
+        <span class="badge badge-warning">
+            <span>●</span>
+            <span>Indexing</span>
+        </span>
+        <span class="badge badge-error">
+            <span>●</span>
+            <span>Failed</span>
+        </span>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-error">
+        <span>⚠️</span>
+        <span>@errorMessage</span>
+    </div>
+}
+
+@if (documents != null && documents.Any())
+{
+    <table class="doc-table">
+        <thead>
+            <tr>
+                <th>DOCUMENT</th>
+                <th>STATUS</th>
+                <th>CHUNKS</th>
+                <th>UPLOADED</th>
+                <th>ACTIONS</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var doc in documents)
+            {
+                <tr>
+                    <td>
+                        <div class="doc-info">
+                            <div class="doc-icon">📄</div>
+                            <div class="doc-details">
+                                <h3>@doc.OriginalFileName</h3>
+                                <div class="doc-size">@(doc.ChunksCount ?? 0) chunks</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="status-badge @GetStatusClass(doc.Status)">
+                            <span>●</span>
+                            <span>@GetStatusText(doc.Status)</span>
+                        </span>
+                    </td>
+                    <td class="chunks-count"># @(doc.ChunksCount ?? 0)</td>
+                    <td style="color: var(--text-secondary); font-size: 14px;">
+                        @doc.UploadedAtUtc.ToLocalTime().ToString("MMM dd, yyyy")
+                    </td>
+                    <td>
+                        <div class="doc-actions">
+                            @if (doc.Status == 2 || doc.Status == 3)
+                            {
+                                <button class="icon-btn" @onclick="() => ReindexDocument(doc.DocumentId)">
+                                    <span>🔄</span>
+                                    <span>Reindex</span>
+                                </button>
+                            }
+                            <button class="icon-btn danger" @onclick="() => DeleteDocument(doc.DocumentId)">
+                                <span>🗑️</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else if (!isLoading && documents != null)
+{
+    <div class="card" style="text-align: center; padding: 4rem 2rem;">
+        <div style="font-size: 48px; margin-bottom: 1rem;">📚</div>
+        <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">No documents yet</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Upload your first Markdown document to get started.</p>
+        <a href="/upload" class="btn btn-primary">Upload Document</a>
+    </div>
+}
+
+@code {
+    private List<DocumentRecord>? documents;
+    private bool isLoading = false;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDocuments();
+    }
+
+    private async Task LoadDocuments()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            documents = await DocumentApi.GetDocumentsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task DeleteDocument(Guid id)
+    {
+        try
+        {
+            await DocumentApi.DeleteDocumentAsync(id);
+            await LoadDocuments();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task ReindexDocument(Guid id)
+    {
+        try
+        {
+            await DocumentApi.ReindexDocumentAsync(id);
+            await LoadDocuments();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private string GetDocumentStats()
+    {
+        if (documents == null) return "Loading...";
+        var totalChunks = documents.Sum(d => d.ChunksCount ?? 0);
+        var indexed = documents.Count(d => d.Status == 2);
+        return $"{documents.Count} documents · {totalChunks} chunks · {indexed} indexed";
+    }
+
+    private string GetStatusClass(int status) => status switch
+    {
+        2 => "status-indexed",   // Indexed
+        1 => "status-indexing",  // Indexing
+        3 => "status-failed",    // Failed
+        _ => ""
+    };
+
+    private string GetStatusText(int status) => status switch
+    {
+        0 => "Uploaded",
+        1 => "Indexing",
+        2 => "Indexed",
+        3 => "Failed",
+        4 => "Deleted",
+        _ => "Unknown"
+    };
+}

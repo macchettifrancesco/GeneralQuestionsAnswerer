@@ -1,0 +1,164 @@
+@page "/upload"
+@inject DocumentApiClient DocumentApi
+
+<div class="page-header">
+    <span>⬆️</span>
+    <span>DOCUMENT INGESTION</span>
+</div>
+
+<h1 class="page-title">Upload Document</h1>
+<p class="page-subtitle">
+    Upload Markdown (.md), Text (.txt), or PDF (.pdf) files to parse, chunk, and embed them into your vector index.
+</p>
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success">
+        <span>✅</span>
+        <span>@successMessage</span>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-error">
+        <span>⚠️</span>
+        <span>@errorMessage</span>
+    </div>
+}
+
+<div style="position: relative;">
+    <div class="upload-zone" style="cursor: pointer;">
+        <div class="upload-icon">⬆️</div>
+        <div class="upload-text">Drag & drop documents here</div>
+        <div class="upload-hint">
+            or <span class="upload-link">click to browse</span> · Accepts <code>.md</code>, <code>.txt</code>, <code>.pdf</code>
+        </div>
+    </div>
+    <InputFile OnChange="HandleFileSelected" accept=".md,.txt,.pdf" multiple 
+               style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10;" />
+</div>
+
+
+@if (uploadingFiles.Any())
+{
+    <div class="upload-queue">
+        <div class="queue-title">UPLOAD QUEUE</div>
+        @foreach (var file in uploadingFiles)
+        {
+            <div class="queue-item">
+                <div class="queue-item-header">
+                    <div class="queue-item-info">
+                        <span>📄</span>
+                        <span class="queue-item-name">@file.Name</span>
+                        <span class="queue-item-size">@FormatFileSize(file.Size)</span>
+                    </div>
+                    <span class="badge @GetUploadStatusClass(file)">
+                        @if (file.IsUploading)
+                        {
+                            <span class="loading"></span>
+                            <span>Indexing</span>
+                        }
+                        else if (file.IsComplete)
+                        {
+                            <span>✓</span>
+                            <span>Complete</span>
+                        }
+                        else if (file.HasError)
+                        {
+                            <span>✗</span>
+                            <span>Failed</span>
+                        }
+                    </span>
+                </div>
+                @if (file.IsUploading || !file.IsComplete)
+                {
+                    <div class="queue-progress">
+                        <div class="queue-progress-fill" style="width: @file.Progress%"></div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<UploadingFile> uploadingFiles = new();
+    private string? successMessage;
+    private string? errorMessage;
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        foreach (var file in e.GetMultipleFiles())
+        {
+            var uploadingFile = new UploadingFile 
+            { 
+                Name = file.Name, 
+                Size = file.Size,
+                IsUploading = true,
+                Progress = 0
+            };
+            
+            uploadingFiles.Add(uploadingFile);
+            StateHasChanged();
+
+            try
+            {
+                // Simulate progress
+                uploadingFile.Progress = 50;
+                StateHasChanged();
+
+                var response = await DocumentApi.UploadDocumentAsync(file);
+                
+                uploadingFile.Progress = 100;
+                uploadingFile.IsUploading = false;
+                uploadingFile.IsComplete = true;
+                successMessage = $"Successfully uploaded {response.FileName}!";
+            }
+            catch (Exception ex)
+            {
+                uploadingFile.IsUploading = false;
+                uploadingFile.HasError = true;
+                errorMessage = $"Failed to upload {file.Name}: {ex.Message}";
+            }
+            finally
+            {
+                StateHasChanged();
+            }
+        }
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len = len / 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+
+    private string GetUploadStatusClass(UploadingFile file)
+    {
+        if (file.HasError) return "badge-error";
+        if (file.IsComplete) return "badge-success";
+        if (file.IsUploading) return "badge-warning";
+        return "";
+    }
+
+    private class UploadingFile
+    {
+        public string Name { get; set; } = "";
+        public long Size { get; set; }
+        public bool IsUploading { get; set; }
+        public bool IsComplete { get; set; }
+        public bool HasError { get; set; }
+        public int Progress { get; set; }
+    }
+}

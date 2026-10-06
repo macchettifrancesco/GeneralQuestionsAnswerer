@@ -1,0 +1,104 @@
+@inherits LayoutComponentBase
+@inject DocumentApiClient DocumentApi
+
+<div class="app-container">
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon">📚</div>
+            <span class="logo-text">RagStack</span>
+            <span class="logo-version">v0.4</span>
+        </div>
+
+        <nav class="nav-section">
+            <div class="nav-title">Navigation</div>
+            <a href="/ask" class="nav-item @(IsActive("/ask") ? "active" : "")">
+                <span class="nav-icon">💬</span>
+                <span>Ask Documents</span>
+            </a>
+            <a href="/upload" class="nav-item @(IsActive("/upload") ? "active" : "")">
+                <span class="nav-icon">⬆️</span>
+                <span>Upload Document</span>
+            </a>
+            <a href="/documents" class="nav-item @(IsActive("/documents") ? "active" : "")">
+                <span class="nav-icon">📁</span>
+                <span>Document Library</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="stats-title">Index Stats</div>
+            <div class="stat-item">
+                <span class="stat-label">Documents</span>
+                <span class="stat-value">@stats.TotalDocuments</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Indexed</span>
+                <span class="stat-value success">@stats.IndexedCount</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Chunks</span>
+                <span class="stat-value">@stats.TotalChunks</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: @stats.IndexedPercentage%"></div>
+            </div>
+            <div class="status-indicator">
+                <span class="status-dot"></span>
+                <span>Local RAG · Active</span>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        @Body
+    </main>
+</div>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private IndexStats stats = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStats();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            await LoadStats();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadStats()
+    {
+        try
+        {
+            var docs = await DocumentApi.GetDocumentsAsync();
+            stats.TotalDocuments = docs.Count;
+            stats.IndexedCount = docs.Count(d => d.Status == 2); // Indexed
+            stats.TotalChunks = docs.Sum(d => d.ChunksCount ?? 0);
+            stats.IndexedPercentage = stats.TotalDocuments > 0 
+                ? (int)((double)stats.IndexedCount / stats.TotalDocuments * 100) 
+                : 0;
+        }
+        catch { }
+    }
+
+    private bool IsActive(string path)
+    {
+        return Navigation.Uri.Contains(path);
+    }
+
+    private class IndexStats
+    {
+        public int TotalDocuments { get; set; }
+        public int IndexedCount { get; set; }
+        public int TotalChunks { get; set; }
+        public int IndexedPercentage { get; set; }
+    }
+}
+

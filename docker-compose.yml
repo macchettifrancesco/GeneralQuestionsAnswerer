@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Ollama Embedding Service
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - rag-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Pull the embedding model and lightweight chat model on startup
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        sleep 5
+        ollama pull nomic-embed-text
+        ollama pull gemma2:2b
+        wait
+
+  # TechnicalDocsQa.Api Web API
+  api:
+    build:
+      context: ./TechnicalDocsQa.Api
+      dockerfile: Dockerfile
+    container_name: technicaldocsqa-api
+    ports:
+      - "8000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - Storage__DocumentsPath=/app/Storage/documents
+      - Storage__RegistryPath=/app/Storage/registry/documents.json
+      - Ollama__BaseUrl=http://ollama:11434
+      - Qdrant__BaseUrl=http://qdrant:6333
+    volumes:
+      - api_storage:/app/Storage
+    networks:
+      - rag-network
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # TechnicalDocsQa.Blazor WebAssembly UI
+  blazor:
+    build:
+      context: ./TechnicalDocsQa.Blazor
+      dockerfile: Dockerfile
+    container_name: technicaldocsqa-blazor
+    ports:
+      - "5173:80"
+    networks:
+      - rag-network
+    depends_on:
+      - api
+    restart: unless-stopped
+
+networks:
+  rag-network:
+    driver: bridge
+
+volumes:
+  qdrant_storage:
+    driver: local
+  ollama_data:
+    driver: local
+  api_storage:
+    driver: local

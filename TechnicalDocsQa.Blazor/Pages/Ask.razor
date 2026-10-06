@@ -1,0 +1,143 @@
+@page "/ask"
+@inject QuestionApiClient QuestionApi
+
+<div class="page-header">
+    <span>⚡</span>
+    <span>RAG QUERY INTERFACE</span>
+</div>
+
+<h1 class="page-title">Ask your technical documents</h1>
+<p class="page-subtitle">
+    Answers are generated exclusively from your indexed local documents — no external knowledge, no hallucination. Pure retrieval-augmented generation.
+</p>
+
+<div class="question-container">
+    <div class="question-input-wrapper">
+        <textarea 
+            class="question-input" 
+            @bind="question" 
+            @bind:event="oninput"
+            @onkeydown="HandleKeyDown"
+            placeholder="How does Kubernetes schedule pods across worker nodes?"
+            disabled="@isLoading"></textarea>
+    </div>
+    
+    <div class="input-footer">
+        <div class="input-hint">
+            <span class="kbd">⏎</span>
+            <span>to submit · @documentsCount documents indexed</span>
+        </div>
+        <button class="btn btn-primary" @onclick="AskQuestion" disabled="@(isLoading || string.IsNullOrWhiteSpace(question))">
+            @if (isLoading)
+            {
+                <span class="loading"></span>
+                <span>Processing...</span>
+            }
+            else
+            {
+                <span>✨</span>
+                <span>Ask</span>
+            }
+        </button>
+    </div>
+</div>
+
+@if (answer != null)
+{
+    <div class="answer-card">
+        <div class="answer-text">@answer.Answer</div>
+        
+        @if (answer.Sources != null && answer.Sources.Any())
+        {
+            <div class="sources-section">
+                <div class="sources-title">
+                    <span>📚</span>
+                    <span>@answer.Sources.Count source(s) found</span>
+                </div>
+                @foreach (var source in answer.Sources)
+                {
+                    <div class="source-item">
+                        <div class="source-header">
+                            <span class="source-file">@source.SourceFile</span>
+                            <span class="source-score">Score: @source.Score.ToString("F3")</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(source.Section))
+                        {
+                            <div style="font-size: 12px; color: var(--text-tertiary); margin-bottom: 0.5rem;">
+                                Section: @source.Section | Chunk #@source.ChunkIndex
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        
+        <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-tertiary);">
+            <span>⏱️ Generated in @(answer.TokensUsed) tokens</span>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-error">
+        <span>⚠️</span>
+        <span>@errorMessage</span>
+    </div>
+}
+
+@code {
+    [Inject] private DocumentApiClient DocumentApi { get; set; } = default!;
+
+    private string question = "";
+    private AskQuestionResponse? answer;
+    private string? errorMessage;
+    private bool isLoading = false;
+    private int documentsCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDocumentsCount();
+    }
+
+    private async Task LoadDocumentsCount()
+    {
+        try
+        {
+            var docs = await DocumentApi.GetDocumentsAsync();
+            documentsCount = docs.Count(d => d.Status == 2); // Indexed only
+        }
+        catch { }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey && !isLoading && !string.IsNullOrWhiteSpace(question))
+        {
+            await AskQuestion();
+        }
+    }
+
+    private async Task AskQuestion()
+    {
+        if (string.IsNullOrWhiteSpace(question) || isLoading) return;
+
+        isLoading = true;
+        errorMessage = null;
+        answer = null;
+
+        try
+        {
+            answer = await QuestionApi.AskQuestionAsync(question);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to get answer: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
+

@@ -1,0 +1,53 @@
+@page "/"
+
+<div class="page-header">
+    <span>🏠</span>
+    <span>WELCOME</span>
+</div>
+
+<div style="max-width: 800px;">
+    <h1 class="page-title">Technical Documentation Q&A</h1>
+    <p class="page-subtitle">
+        A powerful RAG (Retrieval-Augmented Generation) system for technical documentation. 
+        Upload your Markdown documents, ask questions, and get AI-powered answers backed by your indexed content.
+    </p>
+
+    <div style="margin-top: 2rem;">
+        <h2 style="font-size: 1.5rem; color: var(--text-primary); margin-bottom: 1rem; font-weight: 600;">Features</h2>
+        <ul style="line-height: 2; color: var(--text-secondary); font-size: 16px;">
+            <li><strong style="color: var(--text-primary);">📄 Document Upload:</strong> Upload Markdown files for automatic indexing</li>
+            <li><strong style="color: var(--text-primary);">🤖 AI-Powered Q&A:</strong> Ask questions and get intelligent answers from your documentation</li>
+            <li><strong style="color: var(--text-primary);">🔍 Source Citations:</strong> Every answer includes references to source documents</li>
+            <li><strong style="color: var(--text-primary);">⚡ Vector Search:</strong> Fast semantic search using Qdrant vector database</li>
+            <li><strong style="color: var(--text-primary);">🧠 Ollama Integration:</strong> Local embeddings (nomic-embed-text) and chat (gemma2:2b)</li>
+        </ul>
+    </div>
+
+    <div style="margin-top: 2.5rem;">
+        <h2 style="font-size: 1.5rem; color: var(--text-primary); margin-bottom: 1rem; font-weight: 600;">Getting Started</h2>
+        <ol style="line-height: 2; color: var(--text-secondary); font-size: 16px;">
+            <li>Navigate to <a href="/upload" style="color: var(--accent-blue); text-decoration: none; font-weight: 600;">Upload Document</a> to add your Markdown documents</li>
+            <li>Wait for automatic indexing to complete (background process)</li>
+            <li>Go to <a href="/ask" style="color: var(--accent-blue); text-decoration: none; font-weight: 600;">Ask Documents</a> to query your documentation</li>
+            <li>View all uploaded documents in <a href="/documents" style="color: var(--accent-blue); text-decoration: none; font-weight: 600;">Document Library</a></li>
+        </ol>
+    </div>
+
+    <div class="card" style="margin-top: 2.5rem; background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 1.5rem;">
+        <h3 style="font-size: 1.2rem; color: var(--accent-blue); margin-bottom: 0.75rem; font-weight: 600;">🚀 Quick Actions</h3>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+            <a href="/upload" class="btn btn-primary" style="text-decoration: none;">
+                <span>⬆️</span>
+                <span>Upload Document</span>
+            </a>
+            <a href="/ask" class="btn btn-secondary" style="text-decoration: none;">
+                <span>💬</span>
+                <span>Ask Question</span>
+            </a>
+            <a href="/documents" class="btn btn-secondary" style="text-decoration: none;">
+                <span>📁</span>
+                <span>View Documents</span>
+            </a>
+        </div>
+    </div>
+</div>

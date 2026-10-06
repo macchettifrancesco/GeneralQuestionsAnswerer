@@ -1,0 +1,16 @@
+# Development Dockerfile with Hot-Reload
+FROM mcr.microsoft.com/dotnet/sdk:8.0
+
+WORKDIR /app
+
+# Install dotnet-watch for hot-reload
+RUN dotnet tool install --global dotnet-watch
+
+# Create storage directories
+RUN mkdir -p Storage/documents Storage/registry
+
+# Expose ports
+EXPOSE 8080
+
+# Use dotnet watch for hot-reload
+ENTRYPOINT ["dotnet", "watch", "run", "--no-restore", "--urls=http://0.0.0.0:8080"]
